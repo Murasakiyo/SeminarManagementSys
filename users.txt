@@ -1,6 +1,2 @@
-yaro,123,
-,
-,
-,
-yas,234
-yaro,345,Student
+
+yaro,123,Student

@@ -78,32 +78,28 @@ public class LoginSignupUI {
         centerWrapper.add(Box.createVerticalGlue()); // absorbs extra space  
 
         frame.add(centerWrapper, BorderLayout.CENTER);
-        int userRole;
 
         // ACTIONS -------------------------------------------------------------------------------------
-        student.addActionListener(e -> {
-            userRole = 1;
-            System.out.println("Student selected");
-        });
-
-        coordinator.addActionListener(e -> {
-            userRole = 2;
-            System.out.println("Coordinator selected");
-        });
-
-        evaluator.addActionListener(e -> {
-            userRole = 3;
-            System.out.println("Evaluator selected");
-        });
 
         loginBtn.addActionListener(e -> {
             String user = userField.getText();
             String pass = new String(passField.getPassword());
+            int userRole = 1;
 
-            if (checkLogin(user, pass)) {
+            if (student.isSelected()){
+                userRole = 1;
+            }
+            else if (coordinator.isSelected()){
+                userRole = 2;
+            }
+            else if (evaluator.isSelected()){
+                userRole = 3;
+            }
+
+            if (checkLogin(user, pass, userRole)) {
                 JOptionPane.showMessageDialog(frame, "Login Successful!");
             } else {
-                JOptionPane.showMessageDialog(frame, "Invalid username or password");
+                JOptionPane.showMessageDialog(frame, "Invalid username or password or role");
             }
         });
 
@@ -207,14 +203,28 @@ public class LoginSignupUI {
     }
 
     // CHECK LOGIN DETAILS
-    static boolean checkLogin(String username, String password) {
+    static boolean checkLogin(String username, String password, int userNum) {
         try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME))) {
             String line;
+            int userInt;
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
+
                 if (data[0].equals(username) && data[1].equals(password)) {
-                    String usertype = data[2];
-                    return true;
+                    if (data[2].equals("Student")){
+                    userInt = 1;
+                    }
+                    else if (data[2].equals("Coordinator")){
+                        userInt = 2;
+                    }
+                    else{
+                        userInt = 3;
+                    }
+
+                    if (userInt == userNum){
+                        return true;
+                    }
+                    
                 }
             }
         } catch (IOException e) {
