@@ -15,7 +15,7 @@ public class StudentUI {
     }
     public static void StudentPage(Student student, Presentation presentation) {
 
-        MyFrame frame = new MyFrame();
+        MyFrame frame = new MyFrame(750, 600);
         frame.setTitle("Student Dashboard");
 
         // HEADER ------------------------------------------------------
