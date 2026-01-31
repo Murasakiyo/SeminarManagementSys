@@ -1,12 +1,12 @@
 public class Student {
 
-    private int id;
+    private String id;
     private String researchTitle;
     private String supervisorName;
     private Presentation presentation;
     private String presentationType ;
 
-    public Student(int id, String researchTitle,
+    public Student(String id, String researchTitle,
                    String supervisorName, String presentationType) {
 
         this.id = id;
@@ -15,8 +15,16 @@ public class Student {
         this.presentationType = presentationType ;
     }
 
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
+    public Student(String id) {
+
+        this.id = id;
+        this.researchTitle = null;
+        this.supervisorName = null;
+        this.presentationType = "poster" ;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
     public String getResearchTitle() { return researchTitle; }
     public void setResearchTitle(String researchTitle) {
@@ -32,5 +40,12 @@ public class Student {
 
     public void setPresentationType(String presentationType) {
         this.presentationType = presentationType;
+    }
+
+    public String studentDetails() {
+        return "Student ID: " + id
+                + "\nResearch Title: " + researchTitle
+                + "\nSupervisor Name: " + supervisorName
+                + "\nPresentation Type: " + presentationType;
     }
 }
