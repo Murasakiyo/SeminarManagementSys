@@ -102,7 +102,12 @@ public class LoginSignupUI {
                 JOptionPane.showMessageDialog(frame, "Login Successful!");
                 frame.dispose();
 
-                if (userRole == 2) { // Coordinator
+                if (userRole == 1) {      //student
+                    Student s = new Student(ID) ;
+                    Presentation p = new Presentation(s) ;
+                    new StudentUI(s, p) ;
+                }
+                else if (userRole == 2) { // Coordinator
                     new CoordDashboard(user, ID);
                 } else {
                     JOptionPane.showMessageDialog(null, "Dashboard not implemented yet for this role");
