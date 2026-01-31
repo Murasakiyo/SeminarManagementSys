@@ -9,6 +9,8 @@ public class CoordDashboard {
     private JPanel cards;
     private String username;
     private String coordID;
+    private DefaultTableModel assignTableModel;
+    private JTable assignTable;
     static final String SESSION_FILE = "sessions.txt";
 
     public static void main(String[] args) {
@@ -69,6 +71,10 @@ public class CoordDashboard {
     private void showCard(String name) {
         CardLayout cl = (CardLayout) cards.getLayout();
         cl.show(cards, name);
+
+        if (name.equals("assign")) {
+            loadAssignments(assignTableModel); // ✅ reload EVERY time
+        }
     }
 
     // ---------------- PANELS ----------------
@@ -324,23 +330,21 @@ public class CoordDashboard {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Assign Evaluators & Student Presenter"));
 
-        // ---------- TABLE SETUP ----------
         String[] columnNames = {"Session ID", "Date", "Evaluators", "Student Presenter"};
-        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+
+        assignTableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Table is read-only
+                return false;
             }
         };
 
-        JTable assignTable = new JTable(tableModel);
+        assignTable = new JTable(assignTableModel);
         assignTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         assignTable.setRowHeight(25);
 
-        loadAssignments(tableModel); // load existing sessions & assignments
         panel.add(new JScrollPane(assignTable), BorderLayout.CENTER);
 
-        // ---------- BUTTON PANEL ----------
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         JButton addEvaluatorBtn = new JButton("Add Evaluator(s)");
         JButton setPresenterBtn = new JButton("Set Student Presenter");
@@ -351,7 +355,6 @@ public class CoordDashboard {
 
         // ---------- ACTIONS ----------
 
-        // Add evaluator(s) using JComboBox (multi-select dialog)
         addEvaluatorBtn.addActionListener(e -> {
             int selectedRow = assignTable.getSelectedRow();
             if (selectedRow == -1) {
@@ -369,14 +372,12 @@ public class CoordDashboard {
                     JOptionPane.OK_CANCEL_OPTION);
 
             if (result == JOptionPane.OK_OPTION) {
-                java.util.List<String> selected = evaluatorJList.getSelectedValuesList();
-                String evalStr = String.join(",", selected);
-                tableModel.setValueAt(evalStr, selectedRow, 2); // Update table
-                saveAssignments(assignTable); // persist
+                String evalStr = String.join(",", evaluatorJList.getSelectedValuesList());
+                assignTableModel.setValueAt(evalStr, selectedRow, 2);
+                saveAssignments(assignTable);
             }
         });
 
-        // Set student presenter using JComboBox (single select)
         setPresenterBtn.addActionListener(e -> {
             int selectedRow = assignTable.getSelectedRow();
             if (selectedRow == -1) {
@@ -385,19 +386,22 @@ public class CoordDashboard {
             }
 
             String[] studentList = loadUsersByRole("Student");
-            String selectedStudent = (String) JOptionPane.showInputDialog(frame,
+            String selectedStudent = (String) JOptionPane.showInputDialog(
+                    frame,
                     "Select Student Presenter:",
                     "Student Presenter",
                     JOptionPane.PLAIN_MESSAGE,
                     null,
                     studentList,
-                    tableModel.getValueAt(selectedRow, 3) != null ? tableModel.getValueAt(selectedRow, 3) : null);
+                    assignTableModel.getValueAt(selectedRow, 3)
+            );
 
             if (selectedStudent != null) {
-                tableModel.setValueAt(selectedStudent, selectedRow, 3);
+                assignTableModel.setValueAt(selectedStudent, selectedRow, 3);
                 saveAssignments(assignTable);
             }
         });
+
         return panel;
     }
 
@@ -459,13 +463,11 @@ public class CoordDashboard {
             }
         } catch (IOException ignored) {}
         return list.toArray(new String[0]);
-    }
+    }// ---------------------------------------------------------END ASSIGN PANEL --------------------------------------------
 
 
-
-
-
-    private JPanel createReportPanel() {
+    // ------------------------------- CREATE REPORT PANEL ----------------------------------------
+    private JPanel createReportPanel() { 
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Schedules & Reports"));
 
