@@ -22,13 +22,44 @@ public class StudentUI {
         frame.add(new HeaderPanel(), BorderLayout.NORTH);
 
         // INFO LABEL
-        JLabel info = new JLabel(
-                "Will put student information here: " + student.getId(),
-                JLabel.CENTER
-        );
-        info.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        JTextArea studentInfoArea = new JTextArea(student.studentDetails());
+        studentInfoArea.setEditable(false);
+        studentInfoArea.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        studentInfoArea.setLineWrap(true);
+        studentInfoArea.setWrapStyleWord(true);
+        studentInfoArea.setOpaque(false); // let panel background show
+
+        JTextArea presInfoArea = new JTextArea(presentation.presentationDetails());
+        presInfoArea.setEditable(false);
+        presInfoArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        presInfoArea.setLineWrap(true);
+        presInfoArea.setWrapStyleWord(true);
+        presInfoArea.setOpaque(false);
+
+        JPanel studentBox = new JPanel(new BorderLayout());
+        studentBox.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        studentBox.add(studentInfoArea, BorderLayout.CENTER);
+
+        JPanel presBox = new JPanel(new BorderLayout());
+        presBox.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.BLACK, 2),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        presBox.add(presInfoArea, BorderLayout.CENTER);
+
+        JPanel detailsRow = new JPanel(new GridLayout(1, 2, 15, 0));
+        detailsRow.add(studentBox);
+        detailsRow.add(presBox);
+        detailsRow.setPreferredSize(new Dimension(0, 160));
+
 
         // BUTTONS ----------------------------------------------------
+        JButton setTypeBtn = new JButton("Set Presentation Type");
+        JButton setTitleBtn = new JButton("Set Presentation Title");
+        JButton setDescBtn = new JButton("Set Presentation Description");
         JButton uploadBtn = new JButton("Upload Slides");
         JButton deleteSlidesBtn = new JButton("Delete Slides");
         JButton detailBtn = new JButton("View Presentation Details");
@@ -38,6 +69,9 @@ public class StudentUI {
         // CENTER PANEL
         JPanel actionPanel = new JPanel(new GridLayout(4,1,0,15));
         actionPanel.add(detailBtn);
+        actionPanel.add(setTypeBtn);
+        actionPanel.add(setTitleBtn);
+        actionPanel.add(setDescBtn);
 
         if(student.getPresentationType().equals("Oral")){
             actionPanel.add(uploadBtn);
@@ -58,7 +92,7 @@ public class StudentUI {
         );
 
         centerWrapper.add(Box.createVerticalStrut(30));
-        centerWrapper.add(info);
+        centerWrapper.add(detailsRow);
         centerWrapper.add(Box.createVerticalStrut(20));
         centerWrapper.add(actionPanel);
         centerWrapper.add(Box.createVerticalGlue());
@@ -85,6 +119,47 @@ public class StudentUI {
         deleteSlidesBtn.addActionListener(e -> {
             if(presentation.deletePresentation())
                 JOptionPane.showMessageDialog(frame,"Presentation file deleted!");
+        });
+
+        setTitleBtn.addActionListener(e -> {
+            String newTitle = JOptionPane.showInputDialog(frame, "Enter Presentation Title:", presentation.getTitle());
+            if (newTitle != null && !newTitle.trim().isEmpty()) {
+                presentation.setTitle(newTitle.trim());
+                JOptionPane.showMessageDialog(frame, "Title updated!");
+            }
+        });
+
+        setDescBtn.addActionListener(e -> {
+            String newDesc = JOptionPane.showInputDialog(frame, "Enter Presentation Description:", presentation.getDescription());
+            if (newDesc != null && !newDesc.trim().isEmpty()) {
+                presentation.setDescription(newDesc.trim());
+                JOptionPane.showMessageDialog(frame, "Description updated!");
+            }
+        });
+
+        setTypeBtn.addActionListener(e -> {
+            String[] options = {"Oral", "Poster"};
+            String choice = (String) JOptionPane.showInputDialog(
+                    frame,
+                    "Select Presentation Type:",
+                    "Presentation Type",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    options,
+                    student.getPresentationType()
+            );
+
+            if (choice != null) {
+                // update both student + presentation
+                student.setPresentationType(choice);
+                presentation.setPresentationType(choice);
+
+                JOptionPane.showMessageDialog(frame, "Presentation type updated to: " + choice);
+
+                // Refresh UI to show correct buttons
+                frame.dispose();
+                StudentPage(student, presentation);
+            }
         });
 
         frame.setVisible(true);
