@@ -4,21 +4,21 @@ import java.time.LocalDate;
 
 public class Presentation {
 
-    private int presentationID;
+    private String presentationID;
     private String title;
     private LocalDate dateCreated;
     private String description;
     private String presentationPath;
     private String presentationType;
 
-    public int getPresentationID() { return presentationID ; }
+    public String getPresentationID() { return presentationID ; }
     public String getTitle() { return title ; }
     public LocalDate getDateCreated() { return dateCreated ; }
     public String getDescription() { return description ; }
     public String getPresentationPath() { return presentationPath ; }
     public String getPresentationType() { return presentationType ; }
 
-    public void setPresentationID(int presentationID) {
+    public void setPresentationID(String presentationID) {
         this.presentationID = presentationID;
     }
 
@@ -42,7 +42,7 @@ public class Presentation {
         this.presentationType = presentationType;
     }
 
-    public Presentation(int presentationID, String title, LocalDate dateCreated, String description, String presentationPath, String presentationType) {
+    public Presentation(String presentationID, String title, LocalDate dateCreated, String description, String presentationPath, String presentationType) {
         this.presentationID = presentationID;
         this.title = title;
         this.dateCreated = dateCreated;
