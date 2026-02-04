@@ -3,7 +3,9 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EvaluatorDashboard {
     private JFrame frame;
@@ -141,7 +143,6 @@ public class EvaluatorDashboard {
         sessionBox.addActionListener(e -> {
             String selected = (String) sessionBox.getSelectedItem();
             if (selected != null) {
-                // Format: "SES001 (Date)"
                 String id = selected.split(" ")[0];
                 String presenter = getPresenterForSession(id);
                 studentField.setText(presenter);
@@ -197,7 +198,7 @@ public class EvaluatorDashboard {
             String sessionStr = (String) sessionBox.getSelectedItem();
             if (sessionStr == null) return;
             String sessionID = sessionStr.split(" ")[0];
-            String student = studentField.getText();
+            String studentId = studentField.getText();
             
             try {
                 int rq = Integer.parseInt(rqField.getText());
@@ -205,12 +206,12 @@ public class EvaluatorDashboard {
                 int meth = Integer.parseInt(methField.getText());
                 int pres = Integer.parseInt(presField.getText());
                 int orig = Integer.parseInt(origField.getText());
-                String comments = commentsArea.getText().replace(",", " "); // simplistic csv escape
+                String comments = commentsArea.getText().replace(",", " ");
 
                 int finalMark = rq + res + meth + pres + orig;
                 
                 // Save
-                saveEvaluation(sessionID, student, username, finalMark, rq, res, meth, pres, orig, comments);
+                saveEvaluation(sessionID, studentId, username, finalMark, rq, res, meth, pres, orig, comments);
                 
                 // Refresh
                 loadEvaluationHistory(historyModel);
@@ -231,55 +232,61 @@ public class EvaluatorDashboard {
 
     private void loadAssignedSessions(DefaultTableModel model) {
         model.setRowCount(0);
-        // 1. Get List of Session IDs assigned to this evaluator from assignments.txt
-        List<String> assignedIDs = new ArrayList<>();
+
+        // sessionID -> studentID (presenter)
+        Map<String, String> sessionToStudent = new HashMap<>();
+
+        // 1) Read assignments.txt and collect sessions assigned to THIS evaluatorID
         try (BufferedReader br = new BufferedReader(new FileReader(ASSIGNMENT_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(",", -1);
-                if (parts.length >= 2) {
-                    // Evaluators are comma separated string at index 1?
-                    // "SES001,eval1,eval2,student1" -> No, coord dashboard saves as "sessionID,evaluators,presenter"
-                    // evaluators is "user1,val2"
-                    String sessionID = parts[0];
-                    String evaluators = parts[1]; 
-                    if (evaluators.contains(username)) { // Simple check, ideally check split
-                         // better: check if username is in the list
-                         String[] evals = evaluators.split(",");
-                         for (String ev : evals) {
-                             if (ev.trim().equals(username)) {
-                                 assignedIDs.add(sessionID);
-                                 break;
-                             }
-                         }
-                    }
+                if (parts.length < 3) continue;
+
+                String sessionID = parts[0].trim();
+                String evaluatorIDs = parts[1].trim(); // "EV113;EV123"
+                String studentID = parts[2].trim();    // "STU008"
+
+                if (hasId(evaluatorIDs, evaluatorID)) {
+                    sessionToStudent.put(sessionID, studentID);
                 }
             }
         } catch (IOException ignored) {}
 
-        // 2. Load details from sessions.txt
+        // 2) Read sessions.txt and display only those sessions
         try (BufferedReader br = new BufferedReader(new FileReader(SESSION_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] data = line.split(",");
+                String[] data = line.split(",", -1);
                 if (data.length < 7) continue;
-                String sid = data[0];
-                
-                if (assignedIDs.contains(sid)) {
-                    // Need presenter name from assignments... reuse helper?
-                    // Actually let's just fetch it again or store it map.
-                    String presenter = getPresenterForSession(sid);
-                            
-                    model.addRow(new Object[]{
+
+                String sid = data[0].trim();
+                if (!sessionToStudent.containsKey(sid)) continue;
+
+                String date = data[2].trim();
+                String location = data[5].trim();
+                String type = data[6].trim();
+
+                String presenter = sessionToStudent.get(sid); // studentID (as stored)
+
+                model.addRow(new Object[]{
                         sid,
-                        data[2], // Date
+                        date,
                         presenter,
-                        data[5], // Location
-                        data[6]  // Type
-                    });
-                }
+                        location,
+                        type
+                });
             }
         } catch (IOException ignored) {}
+    }
+
+    private boolean hasId(String idList, String targetId) {
+        // evaluatorIDs stored like "EV113;EV123"
+        String[] ids = idList.split(";");
+        for (String id : ids) {
+            if (id.trim().equals(targetId)) return true;
+        }
+        return false;
     }
 
     private String getPresenterForSession(String sessionID) {
@@ -287,8 +294,10 @@ public class EvaluatorDashboard {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(",", -1);
-                if (parts.length >= 3 && parts[0].equals(sessionID)) {
-                    return parts[2]; // Presenter
+                if (parts.length < 3) continue;
+
+                if (parts[0].trim().equals(sessionID)) {
+                    return parts[2].trim(); // studentID
                 }
             }
         } catch (IOException ignored) {}
@@ -297,29 +306,44 @@ public class EvaluatorDashboard {
 
     private void loadSessionDropdown(JComboBox<String> box, JTextField studentField) {
         box.removeAllItems();
-        // Load assigned sessions similar to table
-         List<String> assignedIDs = new ArrayList<>();
+
+        // sessionID -> studentID
+        Map<String, String> sessionToStudent = new HashMap<>();
+
         try (BufferedReader br = new BufferedReader(new FileReader(ASSIGNMENT_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(",", -1);
-                if (parts.length >= 2) {
-                     String sessionID = parts[0];
-                    String evaluators = parts[1];
-                     String[] evals = evaluators.split(",");
-                     for (String ev : evals) {
-                         if (ev.trim().equals(username)) {
-                             assignedIDs.add(sessionID);
-                             break;
-                         }
-                     }
+                if (parts.length < 3) continue;
+
+                String sessionID = parts[0].trim();
+                String evaluatorIDs = parts[1].trim();
+                String studentID = parts[2].trim();
+
+                if (hasId(evaluatorIDs, evaluatorID)) {
+                    sessionToStudent.put(sessionID, studentID);
                 }
             }
         } catch (IOException ignored) {}
-        
-        for (String sess : assignedIDs) {
-            box.addItem(sess); 
+
+        // Fill dropdown
+        for (String sid : sessionToStudent.keySet()) {
+            box.addItem(sid);
         }
+
+        // Auto-fill student for initial selection
+        if (box.getItemCount() > 0) {
+            String first = (String) box.getItemAt(0);
+            studentField.setText(sessionToStudent.getOrDefault(first, "N/A"));
+        }
+
+        // Update student when session changes
+        box.addActionListener(e -> {
+            String sid = (String) box.getSelectedItem();
+            if (sid != null) {
+                studentField.setText(sessionToStudent.getOrDefault(sid, "N/A"));
+            }
+        });
     }
 
     private void saveEvaluation(String sessionID, String student, String evaluator, int finalMark, 

@@ -11,6 +11,7 @@ public class CoordDashboard {
     private JPanel cards;
     private String username;
     private String coordID;
+    
     // For create events
     private DefaultTableModel assignTableModel;
     // For reports
@@ -23,10 +24,6 @@ public class CoordDashboard {
     private File reportsDir = new File("reports");
     private File currentReportFile = null;
     private boolean reportIncomplete = false;
-
-    public static void main(String[] args) {
-        new CoordDashboard("Dan", "COORD12");
-    }
 
     public CoordDashboard(String username, String coordID) {
         this.username = username;
@@ -84,7 +81,7 @@ public class CoordDashboard {
         cl.show(cards, name);
 
         if (name.equals("assign")) {
-            loadAssignments(assignTableModel); // ✅ reload EVERY time
+            loadAssignments(assignTableModel); // reload every time
         }
     }
 
@@ -98,7 +95,8 @@ public class CoordDashboard {
         return panel;
     }
 
-    private JPanel createSessionPanel() { // --------------------CREATE SESSION--------------------------------------
+    // ------------------------CREATE SESSION--------------------------------------
+    private JPanel createSessionPanel() { 
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Create Seminar Session"));
 
