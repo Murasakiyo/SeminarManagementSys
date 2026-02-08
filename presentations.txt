@@ -1,3 +1,3 @@
 STU008,Oral,Yes,Testetste,Test,TestName
 STU009,Oral,Bees,I like bees
-STU67,poster,,,meow,
+STU67,Poster,The Great Gatsby,Goldy Bloons,I like gold,Baro,uploads/student_STU67/Posters/LQBTQ+.pdf

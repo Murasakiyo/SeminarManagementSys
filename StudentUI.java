@@ -7,6 +7,8 @@ public class StudentUI {
     private Student student;
     private Presentation presentation;
 
+    // File format (7 columns):
+    // studentID,presentationType,title,description,researchTitle,supervisorName,presentationPath
     static final String PRESENTATION_FILE = "presentations.txt";
 
     public StudentUI(Student student, Presentation presentation) {
@@ -17,6 +19,7 @@ public class StudentUI {
 
     public static void StudentPage(Student student, Presentation presentation) {
 
+        // Load submitted record (if any)
         loadPresentationFromFile(student, presentation);
 
         MyFrame frame = new MyFrame(750, 600);
@@ -59,13 +62,20 @@ public class StudentUI {
 
         // ---------- BUTTONS ----------
         JButton logoutBtn = new JButton("Logout");
-        JButton detailBtn = new JButton("View Presentation Details");
-        JButton setResearchTitleBtn = new JButton("Set Research Title");
-        JButton setSupervisorBtn = new JButton("Set Supervisor Name");
+
+        JButton registerBtn = new JButton("Register / Submit");
+        JButton removeSubmittedBtn = new JButton("Remove Submitted Presentation");
+
+        JButton detailBtn = new JButton("View Current Details");
         JButton viewSubmittedBtn = new JButton("View Submitted Presentation");
+
         JButton setTypeBtn = new JButton("Set Presentation Type");
         JButton setTitleBtn = new JButton("Set Presentation Title");
         JButton setDescBtn = new JButton("Set Presentation Description");
+
+        JButton setResearchTitleBtn = new JButton("Set Research Title");
+        JButton setSupervisorBtn = new JButton("Set Supervisor Name");
+
         JButton uploadBtn = new JButton("Upload Slides");
         JButton deleteSlidesBtn = new JButton("Delete Slides");
         JButton uploadPosterBtn = new JButton("Upload Poster");
@@ -73,17 +83,40 @@ public class StudentUI {
 
         JPanel actionPanel = new JPanel(new GridLayout(0, 1, 0, 15));
 
+        final boolean[] hasUnsavedChanges = new boolean[]{false};
+
+        Runnable refreshTextAreas = () -> {
+            studentInfoArea.setText(student.studentDetails());
+            presInfoArea.setText(presentation.presentationDetails());
+        };
+
+        Runnable markDirty = () -> {
+            hasUnsavedChanges[0] = true;
+            registerBtn.setText("Register / Submit (unsaved)");
+        };
+
+        Runnable markClean = () -> {
+            hasUnsavedChanges[0] = false;
+            registerBtn.setText("Register / Submit");
+        };
+
         Runnable rebuildActionPanel = () -> {
             actionPanel.removeAll();
+
+            actionPanel.add(registerBtn);
+            actionPanel.add(removeSubmittedBtn);
+
             actionPanel.add(detailBtn);
-            actionPanel.add(setResearchTitleBtn);
-            actionPanel.add(setSupervisorBtn);
             actionPanel.add(viewSubmittedBtn);
+
             actionPanel.add(setTypeBtn);
             actionPanel.add(setTitleBtn);
             actionPanel.add(setDescBtn);
 
-            if (student.getPresentationType().equals("Oral")) {
+            actionPanel.add(setResearchTitleBtn);
+            actionPanel.add(setSupervisorBtn);
+
+            if (student.getPresentationType() != null && student.getPresentationType().equals("Oral")) {
                 actionPanel.add(uploadBtn);
                 actionPanel.add(deleteSlidesBtn);
             } else {
@@ -129,21 +162,44 @@ public class StudentUI {
             LoginSignupUI.showLogin();
         });
 
-        uploadBtn.addActionListener(e -> uploadFile(frame, presentation));
-        uploadPosterBtn.addActionListener(e -> uploadFile(frame, presentation));
+        // Uploads should NOT auto-save to presentations.txt; only update UI and mark as unsaved
+        uploadBtn.addActionListener(e -> {
+            if (uploadFile(frame, presentation)) {
+                presInfoArea.setText(presentation.presentationDetails());
+            }
+        });
+
+        uploadPosterBtn.addActionListener(e -> {
+            if (uploadFile(frame, presentation)) {
+                presInfoArea.setText(presentation.presentationDetails());
+            }
+        });
 
         detailBtn.addActionListener(e ->
                 JOptionPane.showMessageDialog(frame, presentation.presentationDetails())
         );
 
+        viewSubmittedBtn.addActionListener(e -> {
+            String submitted = readSubmittedDetails(student.getId());
+            if (submitted == null) JOptionPane.showMessageDialog(frame, "No submitted presentation found.");
+            else JOptionPane.showMessageDialog(frame, submitted);
+        });
+
+        // Delete uploaded file locally (does NOT remove the record from presentations.txt)
         deletePosterBtn.addActionListener(e -> {
-            if (presentation.deletePresentation())
+            if (presentation.deletePresentation()) {
                 JOptionPane.showMessageDialog(frame, "Presentation file deleted!");
+                refreshTextAreas.run();
+                markDirty.run();
+            }
         });
 
         deleteSlidesBtn.addActionListener(e -> {
-            if (presentation.deletePresentation())
+            if (presentation.deletePresentation()) {
                 JOptionPane.showMessageDialog(frame, "Presentation file deleted!");
+                refreshTextAreas.run();
+                markDirty.run();
+            }
         });
 
         setTypeBtn.addActionListener(e -> {
@@ -152,40 +208,125 @@ public class StudentUI {
                     frame, "Select Presentation Type:",
                     "Presentation Type",
                     JOptionPane.QUESTION_MESSAGE,
-                    null, options, student.getPresentationType()
+                    null, options,
+                    student.getPresentationType()
             );
             if (choice == null) return;
 
             student.setPresentationType(choice);
             presentation.setPresentationType(choice);
-            savePresentation(student, presentation);
 
-            studentInfoArea.setText(student.studentDetails());
-            presInfoArea.setText(presentation.presentationDetails());
+            // If type changes, clear the file path (prevents wrong folder mix-up)
+            presentation.setPresentationPath(null);
+
+            refreshTextAreas.run();
             rebuildActionPanel.run();
+            markDirty.run();
+        });
+
+        setTitleBtn.addActionListener(e -> {
+            String t = JOptionPane.showInputDialog(frame, "Enter Presentation Title:", presentation.getTitle());
+            if (t == null) return;
+
+            t = t.trim();
+            if (t.isEmpty()) return;
+
+            presentation.setTitle(t);
+            refreshTextAreas.run();
+            markDirty.run();
+        });
+
+        setDescBtn.addActionListener(e -> {
+            String d = JOptionPane.showInputDialog(frame, "Enter Presentation Description:", presentation.getDescription());
+            if (d == null) return;
+
+            d = d.trim();
+            if (d.isEmpty()) return;
+
+            presentation.setDescription(d);
+            refreshTextAreas.run();
+            markDirty.run();
         });
 
         setResearchTitleBtn.addActionListener(e -> {
             String t = JOptionPane.showInputDialog(frame, "Enter Research Title:", student.getResearchTitle());
-            if (t == null || t.trim().isEmpty()) return;
-            student.setResearchTitle(t.trim());
-            savePresentation(student, presentation);
-            studentInfoArea.setText(student.studentDetails());
+            if (t == null) return;
+
+            t = t.trim();
+            if (t.isEmpty()) return;
+
+            student.setResearchTitle(t);
+            refreshTextAreas.run();
+            markDirty.run();
         });
 
         setSupervisorBtn.addActionListener(e -> {
             String s = JOptionPane.showInputDialog(frame, "Enter Supervisor Name:", student.getSupervisorName());
-            if (s == null || s.trim().isEmpty()) return;
-            student.setSupervisorName(s.trim());
-            savePresentation(student, presentation);
-            studentInfoArea.setText(student.studentDetails());
+            if (s == null) return;
+
+            s = s.trim();
+            if (s.isEmpty()) return;
+
+            student.setSupervisorName(s);
+            refreshTextAreas.run();
+            markDirty.run();
         });
 
-        viewSubmittedBtn.addActionListener(e ->
-                JOptionPane.showMessageDialog(frame, presentation.presentationDetails())
-        );
+        // Register: only here we write into presentations.txt
+        registerBtn.addActionListener(e -> {
+            if (!validateBeforeRegister(frame, student, presentation)) return;
+
+            savePresentation(student, presentation);
+            JOptionPane.showMessageDialog(frame, "Presentation submitted / registered!");
+            markClean.run();
+        });
+
+        // Remove: delete row from presentations.txt AND clear current info (also deletes uploaded file)
+        removeSubmittedBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    frame,
+                    "Remove your submitted presentation record?\n(This will also delete your uploaded file if it exists.)",
+                    "Confirm Remove",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+            // delete file first (if any)
+            presentation.deletePresentation();
+
+            boolean removed = deleteSubmissionRecord(student.getId());
+            presentation.setTitle(null);
+            presentation.setDescription(null);
+            presentation.setPresentationPath(null);
+
+            refreshTextAreas.run();
+            markClean.run();
+
+            JOptionPane.showMessageDialog(frame, removed ? "Submitted record removed." : "No submitted record found.");
+        });
 
         frame.setVisible(true);
+    }
+
+    // ---------- VALIDATION ----------
+    private static boolean validateBeforeRegister(JFrame frame, Student student, Presentation presentation) {
+
+        if (presentation.getPresentationType() == null || presentation.getPresentationType().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Please set a presentation type first.");
+            return false;
+        }
+
+        if (presentation.getTitle() == null || presentation.getTitle().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Please set a presentation title first.");
+            return false;
+        }
+
+        if (presentation.getDescription() == null || presentation.getDescription().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Please set a presentation description first.");
+            return false;
+        }
+
+        return true;
     }
 
     // ---------- FILE HELPERS ----------
@@ -209,15 +350,60 @@ public class StudentUI {
                     student.setResearchTitle(p[4].trim());
                     student.setSupervisorName(p[5].trim());
                 }
+
+                if (p.length >= 7) {
+                    presentation.setPresentationPath(p[6].trim().isEmpty() ? null : p[6].trim());
+                }
+
                 return;
             }
         } catch (IOException ignored) {}
     }
 
-    private static void uploadFile(JFrame frame, Presentation presentation) {
+    // Returns true if uploaded OK
+    private static boolean uploadFile(JFrame frame, Presentation presentation) {
         JFileChooser chooser = new JFileChooser();
-        if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return;
-        presentation.uploadPresentation(chooser.getSelectedFile());
+        if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return false;
+
+        boolean ok = presentation.uploadPresentation(chooser.getSelectedFile());
+        if (!ok) {
+            JOptionPane.showMessageDialog(frame, "Upload failed (check console for errors).");
+        }
+        return ok;
+    }
+
+
+    // Read submitted details directly from file (so it's truly "submitted")
+    private static String readSubmittedDetails(String studentId) {
+        File f = new File(PRESENTATION_FILE);
+        if (!f.exists()) return null;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split(",", -1);
+                if (p.length < 4) continue;
+                if (!p[0].trim().equals(studentId.trim())) continue;
+
+                String type = p[1].trim();
+                String title = p[2].trim();
+                String desc = p[3].trim();
+                String research = (p.length >= 5) ? p[4].trim() : "";
+                String supervisor = (p.length >= 6) ? p[5].trim() : "";
+                String path = (p.length >= 7) ? p[6].trim() : "";
+
+                return "Submitted Presentation\n"
+                        + "Student ID: " + studentId + "\n"
+                        + "Presentation Type: " + type + "\n"
+                        + "Presentation Title: " + title + "\n"
+                        + "Presentation Description: " + desc + "\n"
+                        + "Research Title: " + research + "\n"
+                        + "Supervisor Name: " + supervisor + "\n"
+                        + "File Path: " + path;
+            }
+        } catch (IOException ignored) {}
+
+        return null;
     }
 
     private static void savePresentation(Student student, Presentation presentation) {
@@ -236,7 +422,9 @@ public class StudentUI {
                     if (line.startsWith(student.getId() + ",")) {
                         bw.write(buildLine(student, presentation));
                         found = true;
-                    } else bw.write(line);
+                    } else {
+                        bw.write(line);
+                    }
                     bw.newLine();
                 }
             }
@@ -252,12 +440,48 @@ public class StudentUI {
         temp.renameTo(input);
     }
 
+    private static boolean deleteSubmissionRecord(String studentId) {
+        File input = new File(PRESENTATION_FILE);
+        if (!input.exists()) return false;
+
+        File temp = new File("temp_presentations.txt");
+        boolean removed = false;
+
+        try (
+                BufferedReader br = new BufferedReader(new FileReader(input));
+                BufferedWriter bw = new BufferedWriter(new FileWriter(temp))
+        ) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith(studentId + ",")) {
+                    removed = true;
+                    continue;
+                }
+                bw.write(line);
+                bw.newLine();
+            }
+        } catch (IOException ignored) {}
+
+        if (input.exists()) input.delete();
+        temp.renameTo(input);
+
+        return removed;
+    }
+
     private static String buildLine(Student student, Presentation presentation) {
+        String path = (presentation.getPresentationPath() == null) ? "" : presentation.getPresentationPath();
+
         return student.getId() + "," +
-                presentation.getPresentationType() + "," +
-                presentation.getTitle() + "," +
-                presentation.getDescription() + "," +
-                student.getResearchTitle() + "," +
-                student.getSupervisorName();
+                safeCsv(presentation.getPresentationType()) + "," +
+                safeCsv(presentation.getTitle()) + "," +
+                safeCsv(presentation.getDescription()) + "," +
+                safeCsv(student.getResearchTitle()) + "," +
+                safeCsv(student.getSupervisorName()) + "," +
+                safeCsv(path);
+    }
+
+    // Minimal safety so null doesn't break the file format
+    private static String safeCsv(String s) {
+        return (s == null) ? "" : s.replace(",", " "); // avoid commas breaking split()
     }
 }
