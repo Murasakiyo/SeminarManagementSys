@@ -6,3 +6,6 @@ yaro,789,Coordinator,COORD12
 kim,123,Student,STU009
 Cam,Lxz@0211,Evaluator,EVLxz0211
 
+ray,123,Coordinator,COORD67
+yaro,123,Evaluator,EV67
+dan,123,Student,STU67

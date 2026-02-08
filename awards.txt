@@ -1,2 +1,2 @@
-Best Oral,SES001,yaro (STU008),,67
-People's Choice Award,-,STU008),unknown,0
+Best Oral,SES001,STU008,yaro,67
+People's Choice Award,-,STU008,yaro,0

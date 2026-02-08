@@ -29,7 +29,34 @@ public class StudentUI {
         MyFrame frame = new MyFrame(750, 600);
         frame.setTitle("Student Dashboard");
 
+        // IMPORTANT: prevents closing this window from exiting the whole program
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        frame.setLayout(new BorderLayout());
         frame.add(new HeaderPanel(), BorderLayout.NORTH);
+
+        // -------------------- LOGOUT BUTTON (ADDED) --------------------
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.addActionListener(e -> {
+            frame.dispose();            // close student window
+            LoginSignupUI.showLogin();  // back to login screen (same as evaluator/coordinator)
+        });
+
+        // Put logout button just below the header, aligned to the right
+        JPanel logoutRow = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        logoutRow.add(logoutBtn);
+
+        // If MyFrame already has a layout, we create a wrapper for header + logout
+        JPanel topWrapper = new JPanel();
+        topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
+        topWrapper.add(new HeaderPanel());
+        topWrapper.add(logoutRow);
+
+        // Replace the old header add with this wrapper:
+        frame.getContentPane().removeAll();
+        frame.setLayout(new BorderLayout());
+        frame.add(topWrapper, BorderLayout.NORTH);
+        // -------------------- END LOGOUT BUTTON (ADDED) --------------------
 
         JTextArea studentInfoArea = new JTextArea(student.studentDetails());
         studentInfoArea.setEditable(false);
@@ -116,7 +143,6 @@ public class StudentUI {
         frame.add(scrollPane, BorderLayout.CENTER);
 
         // ACTIONS
-
         uploadBtn.addActionListener(e -> uploadFile(frame, presentation));
         uploadPosterBtn.addActionListener(e -> uploadFile(frame, presentation));
 
@@ -272,8 +298,6 @@ public class StudentUI {
             JOptionPane.showMessageDialog(frame, "Supervisor name updated!");
         });
 
-        // You haven't implemented where the submitted file path is stored,
-        // so for now this button just shows the details again.
         viewSubmittedBtn.addActionListener(e ->
                 JOptionPane.showMessageDialog(frame, presentation.presentationDetails())
         );
@@ -281,43 +305,6 @@ public class StudentUI {
         frame.setVisible(true);
     }
 
-    // private static void loadPresentationFromFile(Student student, Presentation presentation) {
-    //     File f = new File(PRESENTATION_FILE);
-    //     if (!f.exists()) return;
-
-    //     try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-    //         String line;
-    //         while ((line = br.readLine()) != null) {
-    //             String[] p = line.split(",", -1);
-    //             if (p.length < 4) continue;
-
-    //             String id = p[0].trim();
-    //             if (!id.equals(student.getId().trim())) continue;
-
-    //             // Supports both old (4 columns) and new (6 columns) formats:
-    //             // id,type,title,desc[,researchTitle,supervisorName]
-    //             String type = p[1].trim();
-    //             String title = p[2].trim();
-    //             String desc = p[3].trim();
-
-    //             if (!type.isEmpty()) {
-    //                 student.setPresentationType(type);
-    //                 presentation.setPresentationType(type);
-    //             }
-    //             if (!title.isEmpty()) presentation.setTitle(title);
-    //             if (!desc.isEmpty()) presentation.setDescription(desc);
-
-    //             if (p.length >= 6) {
-    //                 String researchTitle = p[4].trim();
-    //                 String supervisor = p[5].trim();
-    //                 if (!researchTitle.isEmpty()) student.setResearchTitle(researchTitle);
-    //                 if (!supervisor.isEmpty()) student.setSupervisorName(supervisor);
-    //             }
-
-    //             return;
-    //         }
-    //     } catch (IOException ignored) {}
-    // }
     private static void loadPresentationFromFile(Student student, Presentation presentation) {
         PresentationRecord r = PresentationRecord.loadByStudentId(student.getId());
         if (r == null) return;
@@ -348,44 +335,6 @@ public class StudentUI {
         JOptionPane.showMessageDialog(frame, ok ? "File uploaded!" : "Upload failed.");
     }
 
-    // private static void savePresentation(Student student, Presentation presentation) {
-    //     File inputFile = new File(PRESENTATION_FILE);
-    //     File tempFile = new File("temp_presentations.txt");
-    //     boolean found = false;
-
-    //     try (
-    //             BufferedReader br = inputFile.exists() ? new BufferedReader(new FileReader(inputFile)) : null;
-    //             BufferedWriter bw = new BufferedWriter(new FileWriter(tempFile))
-    //     ) {
-    //         if (br != null) {
-    //             String line;
-    //             while ((line = br.readLine()) != null) {
-    //                 String[] parts = line.split(",", -1);
-    //                 if (parts.length >= 1 && parts[0].trim().equals(student.getId().trim())) {
-    //                     // Always write the new 6-column format for this student
-    //                     bw.write(buildLine(student, presentation));
-    //                     bw.newLine();
-    //                     found = true;
-    //                 } else {
-    //                     bw.write(line);
-    //                     bw.newLine();
-    //                 }
-    //             }
-    //         }
-
-    //         if (!found) {
-    //             bw.write(buildLine(student, presentation));
-    //             bw.newLine();
-    //         }
-
-    //     } catch (IOException e) {
-    //         JOptionPane.showMessageDialog(null, "Failed to save presentation details.");
-    //         return;
-    //     }
-
-    //     if (inputFile.exists()) inputFile.delete();
-    //     tempFile.renameTo(inputFile);
-    // }
     private static void savePresentation(Student student, Presentation presentation) {
         PresentationRecord r = new PresentationRecord(
                 student.getId(),
@@ -400,17 +349,4 @@ public class StudentUI {
             JOptionPane.showMessageDialog(null, "Failed to save presentation details.");
         }
     }
-
-    // private static String buildLine(Student student, Presentation presentation) {
-    //     return safe(student.getId()) + "," +
-    //             safe(presentation.getPresentationType()) + "," +
-    //             safe(presentation.getTitle()) + "," +
-    //             safe(presentation.getDescription()) + "," +
-    //             safe(student.getResearchTitle()) + "," +
-    //             safe(student.getSupervisorName());
-    // }
-
-    // private static String safe(String s) {
-    //     return s == null ? "" : s.replace(",", " ").trim();
-    // }
 }
