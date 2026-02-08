@@ -21,6 +21,7 @@ public class CoordDashboard {
     private JTextArea reportTextArea;
 
     static final String SESSION_FILE = "sessions.txt";
+    static final String PRESENTATION_FILE = "presentations.txt";
     private File reportsDir = new File("reports");
     private File currentReportFile = null;
     private boolean reportIncomplete = false;
@@ -359,96 +360,122 @@ public class CoordDashboard {
         }
     } // ------------------------------------------------- CREATE SESSION END -----------------------------------------------
 
-    private JPanel createAssignPanel() { // -------------------------ASSIGN EVALUATORS AND STUDENTS--------------------------
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Assign Evaluators & Student Presenter"));
+private JPanel createAssignPanel() { // -------------------------ASSIGN EVALUATORS AND STUDENTS--------------------------
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBorder(BorderFactory.createTitledBorder("Assign Evaluators & Student Presenter"));
 
-        String[] columnNames = {"Session ID", "Date", "Evaluators", "Student Presenter"};
+    // added "Presentation Type" column
+    String[] columnNames = {"Session ID", "Date", "Presentation Type", "Evaluators", "Student Presenter"};
 
-        assignTableModel = new DefaultTableModel(columnNames, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
+    assignTableModel = new DefaultTableModel(columnNames, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+
+    assignTable = new JTable(assignTableModel);
+    assignTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    assignTable.setRowHeight(25);
+
+    panel.add(new JScrollPane(assignTable), BorderLayout.CENTER);
+
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+    JButton addEvaluatorBtn = new JButton("Add Evaluator(s)");
+    JButton setPresenterBtn = new JButton("Set Student Presenter");
+
+    buttonPanel.add(addEvaluatorBtn);
+    buttonPanel.add(setPresenterBtn);
+    panel.add(buttonPanel, BorderLayout.SOUTH);
+
+    // ---------- ACTIONS ----------
+
+    addEvaluatorBtn.addActionListener(e -> {
+        int selectedRow = assignTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(frame, "Select a session first!");
+            return;
+        }
+
+        String[] evaluatorOptions = loadUserDisplayByRole("Evaluator"); // "asyraf (EV113)"
+        JList<String> list = new JList<>(evaluatorOptions);
+        list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+
+        int result = JOptionPane.showConfirmDialog(
+                frame,
+                new JScrollPane(list),
+                "Select Evaluators",
+                JOptionPane.OK_CANCEL_OPTION
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            java.util.List<String> ids = new java.util.ArrayList<>();
+            for (String s : list.getSelectedValuesList()) {
+                ids.add(extractIdFromDisplay(s));
             }
-        };
 
-        assignTable = new JTable(assignTableModel);
-        assignTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        assignTable.setRowHeight(25);
+            // use ';' to avoid CSV conflict
+            String evalIds = String.join(";", ids);
 
-        panel.add(new JScrollPane(assignTable), BorderLayout.CENTER);
+            // evaluators is now column 3
+            assignTableModel.setValueAt(evalIds, selectedRow, 3);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        JButton addEvaluatorBtn = new JButton("Add Evaluator(s)");
-        JButton setPresenterBtn = new JButton("Set Student Presenter");
-        
+            saveAssignments(assignTable); // autosave
+        }
+    });
 
-        buttonPanel.add(addEvaluatorBtn);
-        buttonPanel.add(setPresenterBtn);
-        panel.add(buttonPanel, BorderLayout.SOUTH);
+    setPresenterBtn.addActionListener(e -> {
+        int selectedRow = assignTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(frame, "Select a session first!");
+            return;
+        }
 
-        // ---------- ACTIONS ----------
+        // session type is now column 2
+        String sessionType = (String) assignTableModel.getValueAt(selectedRow, 2);
+        if (sessionType == null || sessionType.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Session has no presentation type.");
+            return;
+        }
 
-        addEvaluatorBtn.addActionListener(e -> {
-            int selectedRow = assignTable.getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(frame, "Select a session first!");
+        // Only students with matching type, pulled from presentations.txt
+        String[] studentOptions = loadStudentDisplayByType(sessionType.trim());
+        if (studentOptions.length == 0) {
+            JOptionPane.showMessageDialog(frame, "No " + sessionType + " students found in presentations.txt");
+            return;
+        }
+
+        String selected = (String) JOptionPane.showInputDialog(
+                frame,
+                "Select " + sessionType + " Student Presenter:",
+                "Student Presenter",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                studentOptions,
+                null
+        );
+
+        if (selected != null) {
+            String studentId = extractIdFromDisplay(selected);
+
+            // extra safety check (blocks mismatches even if file format changes)
+            String studentType = getStudentTypeFromPresentations(studentId);
+            if (studentType == null || !studentType.equalsIgnoreCase(sessionType.trim())) {
+                JOptionPane.showMessageDialog(frame,
+                        "Type mismatch.\nSession: " + sessionType + "\nStudent: " + studentType);
                 return;
             }
 
-            String[] evaluatorOptions = loadUserDisplayByRole("Evaluator"); // "asyraf (EV113)"
-            JList<String> list = new JList<>(evaluatorOptions);
-            list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+            // presenter is now column 4
+            assignTableModel.setValueAt(studentId, selectedRow, 4);
 
-            int result = JOptionPane.showConfirmDialog(
-                    frame,
-                    new JScrollPane(list),
-                    "Select Evaluators",
-                    JOptionPane.OK_CANCEL_OPTION
-            );
+            saveAssignments(assignTable); // autosave
+        }
+    });
 
-            if (result == JOptionPane.OK_OPTION) {
-                java.util.List<String> ids = new java.util.ArrayList<>();
-                for (String s : list.getSelectedValuesList()) {
-                    ids.add(extractIdFromDisplay(s));
-                }
+    return panel;
+}
 
-                // use ';' to avoid CSV conflict
-                String evalIds = String.join(";", ids);
-                assignTableModel.setValueAt(evalIds, selectedRow, 2);
-
-                saveAssignments(assignTable); // autosave
-            }
-        });
-
-        setPresenterBtn.addActionListener(e -> {
-            int selectedRow = assignTable.getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(frame, "Select a session first!");
-                return;
-            }
-
-            String[] studentOptions = loadUserDisplayByRole("Student"); // "kim (STU009)"
-            String selected = (String) JOptionPane.showInputDialog(
-                    frame,
-                    "Select Student Presenter:",
-                    "Student Presenter",
-                    JOptionPane.PLAIN_MESSAGE,
-                    null,
-                    studentOptions,
-                    null
-            );
-
-            if (selected != null) {
-                String studentId = extractIdFromDisplay(selected);
-                assignTableModel.setValueAt(studentId, selectedRow, 3);
-
-                saveAssignments(assignTable); // autosave
-            }
-        });
-
-        return panel;
-    }
 
     private void saveAssignments(JTable table) {
         try (FileWriter fw = new FileWriter("assignments.txt")) {
@@ -457,10 +484,12 @@ public class CoordDashboard {
             for (int i = 0; i < model.getRowCount(); i++) {
                 String sessionID = (String) model.getValueAt(i, 0);
 
-                String evaluators = (String) model.getValueAt(i, 2);
+                // evaluators now column 3
+                String evaluators = (String) model.getValueAt(i, 3);
                 if (evaluators == null) evaluators = "";
 
-                String presenter = (String) model.getValueAt(i, 3);
+                // presenter now column 4
+                String presenter = (String) model.getValueAt(i, 4);
                 if (presenter == null) presenter = "";
 
                 fw.write(sessionID + "," + evaluators + "," + presenter + "\n");
@@ -469,6 +498,7 @@ public class CoordDashboard {
             e.printStackTrace();
         }
     }
+
 
     private static String[] loadUserDisplayByRole(String role) {
         java.util.List<String> list = new java.util.ArrayList<>();
@@ -498,16 +528,20 @@ public class CoordDashboard {
         if (l == -1 || r == -1 || r <= l) return s.trim();
         return s.substring(l + 1, r).trim();
     }
+
     private void loadAssignments(DefaultTableModel model) {
         model.setRowCount(0); // clear table
+
         // Load session info from sessions.txt
         try (BufferedReader br = new BufferedReader(new FileReader(SESSION_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] data = line.split(",");
+                String[] data = line.split(",", -1);
                 if (data.length < 7) continue;
-                String sessionID = data[0];
-                String date = data[2];
+
+                String sessionID = data[0].trim();
+                String date = data[2].trim();
+                String type = data[6].trim(); // Oral / Poster
 
                 // Load existing assignments if available
                 String evaluators = "";
@@ -518,17 +552,20 @@ public class CoordDashboard {
                         String aLine;
                         while ((aLine = abr.readLine()) != null) {
                             String[] aData = aLine.split(",", -1); // sessionID,evaluators,presenter
-                            if (aData.length >= 3 && aData[0].equals(sessionID)) {
+                            if (aData.length >= 3 && aData[0].trim().equals(sessionID)) {
                                 evaluators = aData[1];
                                 presenter = aData[2];
                             }
                         }
                     }
                 }
-                model.addRow(new Object[]{sessionID, date, evaluators, presenter});
+
+                // columns: sessionID, date, type, evaluators, presenter
+                model.addRow(new Object[]{sessionID, date, type, evaluators, presenter});
             }
         } catch (IOException ignored) {}
     }
+
 // ---------------------------------------------------------END ASSIGN PANEL --------------------------------------------
 
 
@@ -981,6 +1018,66 @@ public class CoordDashboard {
         } catch (IOException ignored) {}
 
         return map;
+    }
+
+    private static String[] loadStudentDisplayByType(String wantedType) {
+        java.util.List<String> list = new java.util.ArrayList<>();
+
+        File f = new File(PRESENTATION_FILE);
+        if (!f.exists()) return new String[0];
+
+        // Build id -> username map so we can show "name (STUxxx)"
+        java.util.Map<String, String> idToUser = new java.util.HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(LoginSignupUI.FILE_NAME))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",", -1);
+                if (data.length < 4) continue;
+                String username = data[0].trim();
+                String id = data[3].trim();
+                if (!id.isEmpty()) idToUser.put(id, username);
+            }
+        } catch (IOException ignored) {}
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split(",", -1);
+                if (p.length < 2) continue;
+
+                String studentId = p[0].trim();
+                String type = p[1].trim();
+
+                if (studentId.isEmpty() || type.isEmpty()) continue;
+
+                if (type.equalsIgnoreCase(wantedType)) {
+                    String uname = idToUser.getOrDefault(studentId, "unknown");
+                    list.add(uname + " (" + studentId + ")");
+                }
+            }
+        } catch (IOException ignored) {}
+
+        return list.toArray(new String[0]);
+    }
+
+    private static String getStudentTypeFromPresentations(String studentId) {
+        File f = new File(PRESENTATION_FILE);
+        if (!f.exists()) return null;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split(",", -1);
+                if (p.length < 2) continue;
+
+                if (p[0].trim().equals(studentId.trim())) {
+                    String type = p[1].trim();
+                    return type.isEmpty() ? null : type;
+                }
+            }
+        } catch (IOException ignored) {}
+
+        return null;
     }
 
     private java.util.Map<String, String> loadSessionTypeMap(String sessionsFileName) {

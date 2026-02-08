@@ -59,51 +59,32 @@ public class Presentation {
         this.presentationPath = null ;
         this.presentationType = s.getPresentationType() ;
     }
+    
     public boolean uploadPresentation(File file) {
-        if(presentationType == "Poster") {
-            try {
-                String newPath = "uploads/student_" + presentationID + "/Posters/" + file.getName();
+        try {
+            boolean isPoster = presentationType != null && presentationType.equalsIgnoreCase("Poster");
 
-                File dest = new File(newPath);
-                dest.getParentFile().mkdirs();
+            String folder = isPoster ? "Posters" : "Slides";
+            String newPath = "uploads/student_" + presentationID + "/" + folder + "/" + file.getName();
 
-                Files.copy(
-                        file.toPath(),
-                        dest.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING
-                );
+            File dest = new File(newPath);
+            dest.getParentFile().mkdirs();
 
-                presentationPath = newPath;
-                return true ;
+            Files.copy(
+                    file.toPath(),
+                    dest.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            presentationPath = newPath;
+            return true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
-        else {
-            try {
-                String newPath = "uploads/student_" + presentationID + "/Slides/" + file.getName();
-
-                File dest = new File(newPath);
-                dest.getParentFile().mkdirs(); // create folder
-
-                Files.copy(
-                        file.toPath(),
-                        dest.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING
-                );
-
-                presentationPath = newPath; // save new path
-
-                return true ;
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        return false ;
     }
+
 
     public String reviewPoster() {
         if (presentationPath == null)
